@@ -49,6 +49,7 @@ class Storage(object):
             SCCACHE_BUCKET sets the S3 bucket,
             SCCACHE_NAMESERVER defines a DNS server to use instead of using
                 getaddrinfo,
+            SCCACHE_MEMCACHE defines a memcache host pool to store the cache,
             SCCACHE_DIR defines a directory where to store a local cache.
                 Defining SCCACHE_DIR makes any of the above variable ignored.
         '''
@@ -69,6 +70,10 @@ class Storage(object):
         directory = os.environ.get('SCCACHE_DIR')
         if directory:
             yield LocalStorage(directory)
+
+        mc = os.environ.get('SCCACHE_MEMCACHE')
+        if mc:
+            yield MemcacheStorage(mc.split())
 
         bucket_name = os.environ.get('SCCACHE_BUCKET')
         if bucket_name:
@@ -263,6 +268,20 @@ class BotoStorage(S3CompatibleStorage):
             self._host = self._calling_format.build_host(get_host,
                                                          self._bucket_name)
 
+class MemcacheStorage(Storage):
+    '''
+    Storage class for a memcached cluster.
+    '''
+    def __init__(self, servers):
+        from bmemcached import Client
+        self.mc = Client(servers)
+        self.last_stats = {}
+
+    def get(self, key):
+        return self.mc.get(key)
+
+    def put(self, key, data):
+        return self.mc.set(key, data) != 0
 
 def ConnectionWrapperFactory(parent_class, dns_query):
     '''
