@@ -127,6 +127,7 @@ class GCCCompiler(Compiler):
         '.cc': 'c++-cpp-output',
         '.cpp': 'c++-cpp-output',
         '.cxx': 'c++-cpp-output',
+        '.S': 'assembler-with-cpp',
     }
 
     ARGS_WITH_VALUE = set([
@@ -164,7 +165,7 @@ class GCCCompiler(Compiler):
                 common_args.append(arg)
             elif arg in self.ARGS_WITH_VALUE:
                 # All these flags take a value.
-                if arg in ('-MF', '-MQ'):
+                if arg in ('-MF', '-MQ', '-I'):
                     preprocessor_args.append(arg)
                     preprocessor_args.append(iter_args.next())
                 else:
@@ -184,9 +185,12 @@ class GCCCompiler(Compiler):
                     # been passed already or not
                     need_explicit_target = True
                     preprocessor_args.append(arg)
+                elif arg.startswith('-I'):
+                    preprocessor_args.append(arg)
                 elif arg.startswith('-') and len(arg) != 1:
                     common_args.append(arg)
-                else:
+                elif len(arg) > 0:
+                    # GCC and clang ignore empty arguments
                     input += (arg,)
 
         # We only support compilation with a given output file (not stdout) and
@@ -247,7 +251,7 @@ class ClangCompiler(GCCCompiler):
     '''
 
     ARGS_WITH_VALUE = GCCCompiler.ARGS_WITH_VALUE | set([
-        '-arch',
+        '-arch', '-Xclang',
     ])
 
     def compile(self, preprocessor_output, parsed_args, cwd=None):
@@ -272,7 +276,8 @@ class ClangCompiler(GCCCompiler):
             # of them when compiling preprocessed output, which can lead to
             # -Werror triggering failures. So try again if it did fail.
             proc = subprocess.Popen([self.executable, '-c', parsed_args['input'],
-                '-o' + parsed_args['output']['obj']] + parsed_args['common_args'],
+                '-o' + parsed_args['output']['obj']] + parsed_args['common_args']
+                + parsed_args['preprocessor_args'],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
 
             stdout, stderr = proc.communicate()
