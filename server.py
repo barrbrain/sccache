@@ -25,6 +25,7 @@ import base_server
 import hashlib
 import json
 import os
+import re
 import sys
 from cStringIO import StringIO
 from base_server import PORT
@@ -46,6 +47,8 @@ from threading import Thread, Event
 # defined".
 FILE = __file__
 
+# gcc/clang included file record format
+re_included = re.compile(r'# [0-9]+ "[^"]*"[ 0-9]*')
 
 class CommandHandler(base_server.CommandHandler):
     '''
@@ -283,7 +286,7 @@ def hash_key(compiler, args, preprocessed):
     '''
     h = hashlib.new('sha1')
     h.update(compiler.digest)
-    h.update(compiler.executable)
+    h.update(os.path.basename(compiler.executable))
     # Add another string here if a given command line sees its cache data
     # modified by code changes (e.g. adding more data)
     h.update(str(CacheData.VERSION))
@@ -294,7 +297,11 @@ def hash_key(compiler, args, preprocessed):
             h.update(var)
             h.update('=')
             h.update(target)
-    h.update(preprocessed)
+    for line in preprocessed.splitlines():
+        if re_included.match(line):
+            continue
+        h.update(line)
+        h.update('\n')
     return h.hexdigest()
 
 
