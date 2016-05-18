@@ -328,8 +328,7 @@ def _run_command(job):
     if preprocessed:
         # Compute the key corresponding to the preprocessor output, the command
         # line, and the compiler.
-        # TODO: Remove preprocessor-only arguments from args (like -D, -I...)
-        cache_key = hash_key(compiler, args, preprocessed)
+        cache_key = hash_key(compiler, parsed_args['common_args'], preprocessed)
 
         if not 'SCCACHE_RECACHE' in os.environ and storage:
             # Get cached data if there is.
